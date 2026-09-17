@@ -1,11 +1,13 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { CVData, Experience, Education, Certification, Language, Project, ThemeColor } from '@/types/cv';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, AlertCircle } from 'lucide-react';
 
 interface CVEditorProps {
   data: CVData;
   onChange: (data: CVData) => void;
+  onValidationChange?: (isValid: boolean, errors: string[]) => void;
 }
 
 const themeColors: { id: ThemeColor; label: string; bgClass: string }[] = [
@@ -16,7 +18,50 @@ const themeColors: { id: ThemeColor; label: string; bgClass: string }[] = [
   { id: 'blue', label: 'Blue', bgClass: 'bg-blue-600' },
 ];
 
-export default function CVEditor({ data, onChange }: CVEditorProps) {
+export default function CVEditor({ data, onChange, onValidationChange }: CVEditorProps) {
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const markTouched = (field: string) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+  };
+
+  // --- Validation Logic ---
+  const getErrors = () => {
+    const errors: string[] = [];
+
+    // Personal Info validation
+    if (!data.personal.fullName || data.personal.fullName.trim().length < 2) {
+      errors.push('Full Name must be at least 2 characters.');
+    }
+    if (!data.personal.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.personal.email)) {
+      errors.push('A valid Email address is required.');
+    }
+    if (data.personal.summary && data.personal.summary.trim().length < 10) {
+      errors.push('Professional Summary must be at least 10 characters.');
+    }
+
+    // Education Year validation (digits only check)
+    data.education.forEach((edu, index) => {
+      if (edu.startDate && !/^\d{4}$/.test(edu.startDate)) {
+        errors.push(`Education #${index + 1}: Start Year must be 4 digits (YYYY).`);
+      }
+      if (edu.endDate && edu.endDate.toLowerCase() !== 'present' && !/^\d{4}$/.test(edu.endDate)) {
+        errors.push(`Education #${index + 1}: End Year must be 4 digits (YYYY) or "Present".`);
+      }
+    });
+
+    return errors;
+  };
+
+  const currentErrors = getErrors();
+
+  useEffect(() => {
+    if (onValidationChange) {
+      onValidationChange(currentErrors.length === 0, currentErrors);
+    }
+  }, [data, onValidationChange]);
+
+  // --- Handlers ---
   const updatePersonal = (field: string, value: string) => {
     onChange({
       ...data,
@@ -168,8 +213,8 @@ export default function CVEditor({ data, onChange }: CVEditorProps) {
         </div>
       </div>
 
-      {/* Personal Info & Photo */}
-      <div className="col-span-full space-y-2">
+      {/* Profile Photo & Upload */}
+      <div className="space-y-2">
         <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Profile Photo</label>
         <div className="flex items-center gap-4">
           {data.personal.photo && (
@@ -206,8 +251,117 @@ export default function CVEditor({ data, onChange }: CVEditorProps) {
         </div>
       </div>
 
+      {/* Personal Information Fields */}
+      <div className="space-y-4 border-t border-slate-800 pt-6">
+        <h2 className="text-sm font-semibold text-indigo-400 uppercase tracking-wider">Personal Information</h2>
+        
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Full Name *</label>
+            <input
+              type="text"
+              placeholder="e.g. Ali Khan (Min 2 chars)"
+              value={data.personal.fullName}
+              onChange={(e) => updatePersonal('fullName', e.target.value)}
+              onBlur={() => markTouched('fullName')}
+              className={`w-full bg-slate-800 border rounded-lg px-3 py-1.5 text-sm focus:outline-none ${
+                touched.fullName && (!data.personal.fullName || data.personal.fullName.trim().length < 2)
+                  ? 'border-red-500 focus:border-red-500'
+                  : 'border-slate-700 focus:border-indigo-500'
+              }`}
+            />
+            {touched.fullName && (!data.personal.fullName || data.personal.fullName.trim().length < 2) && (
+              <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+                <AlertCircle size={12} /> Full name must be at least 2 characters.
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Email *</label>
+              <input
+                type="email"
+                placeholder="e.g. name@example.com"
+                value={data.personal.email}
+                onChange={(e) => updatePersonal('email', e.target.value)}
+                onBlur={() => markTouched('email')}
+                className={`w-full bg-slate-800 border rounded-lg px-3 py-1.5 text-sm focus:outline-none ${
+                  touched.email && (!data.personal.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.personal.email))
+                    ? 'border-red-500 focus:border-red-500'
+                    : 'border-slate-700 focus:border-indigo-500'
+                }`}
+              />
+              {touched.email && (!data.personal.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.personal.email)) && (
+                <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+                  <AlertCircle size={12} /> Enter a valid email address.
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Phone (Digits & Phone Chars Only)</label>
+              <input
+                type="text"
+                placeholder="+92 300 1234567"
+                value={data.personal.phone}
+                onChange={(e) => {
+                  // Restrict to phone-safe characters (numbers, spaces, +, -, parentheses)
+                  const sanitized = e.target.value.replace(/[^\d\s\+\-\(\)]/g, '');
+                  updatePersonal('phone', sanitized);
+                }}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Location</label>
+              <input
+                type="text"
+                placeholder="e.g. Lahore, Pakistan"
+                value={data.personal.location}
+                onChange={(e) => updatePersonal('location', e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Website URL</label>
+              <input
+                type="text"
+                placeholder="https://yourwebsite.com"
+                value={data.personal.website || ''}
+                onChange={(e) => updatePersonal('website', e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Professional Summary</label>
+            <textarea
+              placeholder="Brief professional overview (Min 10 characters)..."
+              rows={3}
+              value={data.personal.summary}
+              onChange={(e) => updatePersonal('summary', e.target.value)}
+              onBlur={() => markTouched('summary')}
+              className={`w-full bg-slate-800 border rounded-lg px-3 py-1.5 text-sm focus:outline-none resize-none ${
+                touched.summary && data.personal.summary && data.personal.summary.trim().length < 10
+                  ? 'border-red-500 focus:border-red-500'
+                  : 'border-slate-700 focus:border-indigo-500'
+              }`}
+            />
+            {touched.summary && data.personal.summary && data.personal.summary.trim().length < 10 && (
+              <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+                <AlertCircle size={12} /> Summary should be at least 10 characters long.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Experience */}
-      <div className="space-y-4">
+      <div className="space-y-4 border-t border-slate-800 pt-6">
         <div className="flex justify-between items-center">
           <h2 className="text-sm font-semibold text-indigo-400 uppercase tracking-wider">Experience</h2>
           <button onClick={addExperience} className="flex items-center gap-1 text-xs bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg font-medium transition">
@@ -222,28 +376,31 @@ export default function CVEditor({ data, onChange }: CVEditorProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pr-6">
               <input
                 type="text"
-                placeholder="Position / Title"
+                placeholder="Position / Title (e.g. Software Engineer)"
                 value={exp.position}
                 onChange={(e) => updateExperience(exp.id, 'position', e.target.value)}
                 className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
               />
               <input
                 type="text"
-                placeholder="Company Name"
+                placeholder="Company Name (e.g. Systems Ltd)"
                 value={exp.company}
                 onChange={(e) => updateExperience(exp.id, 'company', e.target.value)}
                 className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
               />
               <input
                 type="text"
-                placeholder="Start Date (e.g. 2022)"
+                placeholder="Start Date (Digits & / only, e.g. 01/2023)"
                 value={exp.startDate}
-                onChange={(e) => updateExperience(exp.id, 'startDate', e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^\d/]/g, '');
+                  updateExperience(exp.id, 'startDate', val);
+                }}
                 className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
               />
               <input
                 type="text"
-                placeholder="End Date (e.g. Present)"
+                placeholder="End Date (e.g. 12/2025 or Present)"
                 value={exp.endDate}
                 onChange={(e) => updateExperience(exp.id, 'endDate', e.target.value)}
                 className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
@@ -261,7 +418,7 @@ export default function CVEditor({ data, onChange }: CVEditorProps) {
       </div>
 
       {/* Education */}
-      <div className="space-y-4">
+      <div className="space-y-4 border-t border-slate-800 pt-6">
         <div className="flex justify-between items-center">
           <h2 className="text-sm font-semibold text-indigo-400 uppercase tracking-wider">Education</h2>
           <button onClick={addEducation} className="flex items-center gap-1 text-xs bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg font-medium transition">
@@ -276,39 +433,47 @@ export default function CVEditor({ data, onChange }: CVEditorProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pr-6">
               <input
                 type="text"
-                placeholder="Degree / Major"
+                placeholder="Degree / Major (e.g. B.S. Computer Science)"
                 value={edu.degree}
                 onChange={(e) => updateEducation(edu.id, 'degree', e.target.value)}
                 className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
               />
               <input
                 type="text"
-                placeholder="Institution Name"
+                placeholder="Institution Name (e.g. NUST)"
                 value={edu.institution}
                 onChange={(e) => updateEducation(edu.id, 'institution', e.target.value)}
                 className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
               />
-              <input
-                type="text"
-                placeholder="Start Year"
-                value={edu.startDate}
-                onChange={(e) => updateEducation(edu.id, 'startDate', e.target.value)}
-                className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
-              />
-              <input
-                type="text"
-                placeholder="End Year"
-                value={edu.endDate}
-                onChange={(e) => updateEducation(edu.id, 'endDate', e.target.value)}
-                className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
-              />
+              <div>
+                <input
+                  type="text"
+                  maxLength={4}
+                  placeholder="Start Year (Digits only, e.g. 2018)"
+                  value={edu.startDate}
+                  onChange={(e) => {
+                    const digitsOnly = e.target.value.replace(/\D/g, '');
+                    updateEducation(edu.id, 'startDate', digitsOnly);
+                  }}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+              <div>
+                <input
+                  type="text"
+                  placeholder="End Year (YYYY or Present)"
+                  value={edu.endDate}
+                  onChange={(e) => updateEducation(edu.id, 'endDate', e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
+                />
+              </div>
             </div>
           </div>
         ))}
       </div>
 
       {/* Projects */}
-      <div className="space-y-4">
+      <div className="space-y-4 border-t border-slate-800 pt-6">
         <div className="flex justify-between items-center">
           <h2 className="text-sm font-semibold text-indigo-400 uppercase tracking-wider">Projects</h2>
           <button onClick={addProject} className="flex items-center gap-1 text-xs bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg font-medium transition">
@@ -323,7 +488,7 @@ export default function CVEditor({ data, onChange }: CVEditorProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pr-6">
               <input
                 type="text"
-                placeholder="Project Name"
+                placeholder="Project Name (e.g. E-Commerce App)"
                 value={proj.name}
                 onChange={(e) => updateProject(proj.id, 'name', e.target.value)}
                 className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
@@ -337,14 +502,14 @@ export default function CVEditor({ data, onChange }: CVEditorProps) {
               />
               <input
                 type="text"
-                placeholder="Project URL / GitHub Link (Optional)"
+                placeholder="Project URL (https://github.com/...)"
                 value={proj.url || ''}
                 onChange={(e) => updateProject(proj.id, 'url', e.target.value)}
                 className="col-span-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
               />
             </div>
             <textarea
-              placeholder="Brief description of the project and your role..."
+              placeholder="Brief description of the project..."
               rows={2}
               value={proj.description}
               onChange={(e) => updateProject(proj.id, 'description', e.target.value)}
@@ -355,7 +520,7 @@ export default function CVEditor({ data, onChange }: CVEditorProps) {
       </div>
 
       {/* Certifications */}
-      <div className="space-y-4">
+      <div className="space-y-4 border-t border-slate-800 pt-6">
         <div className="flex justify-between items-center">
           <h2 className="text-sm font-semibold text-indigo-400 uppercase tracking-wider">Certifications</h2>
           <button onClick={addCertification} className="flex items-center gap-1 text-xs bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg font-medium transition">
@@ -370,28 +535,31 @@ export default function CVEditor({ data, onChange }: CVEditorProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pr-6">
               <input
                 type="text"
-                placeholder="Certification Name"
+                placeholder="Certification Name (e.g. AWS Certified Developer)"
                 value={cert.name}
                 onChange={(e) => updateCertification(cert.id, 'name', e.target.value)}
                 className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
               />
               <input
                 type="text"
-                placeholder="Issuing Organization"
+                placeholder="Issuing Organization (e.g. Amazon)"
                 value={cert.issuer}
                 onChange={(e) => updateCertification(cert.id, 'issuer', e.target.value)}
                 className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
               />
               <input
                 type="text"
-                placeholder="Date (e.g. 2023)"
+                placeholder="Date (Digits & / only, e.g. 05/2024)"
                 value={cert.date}
-                onChange={(e) => updateCertification(cert.id, 'date', e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^\d/]/g, '');
+                  updateCertification(cert.id, 'date', val);
+                }}
                 className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
               />
               <input
                 type="text"
-                placeholder="Credential URL (Optional)"
+                placeholder="Credential URL (https://...)"
                 value={cert.url || ''}
                 onChange={(e) => updateCertification(cert.id, 'url', e.target.value)}
                 className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
@@ -402,7 +570,7 @@ export default function CVEditor({ data, onChange }: CVEditorProps) {
       </div>
 
       {/* Languages */}
-      <div className="space-y-4">
+      <div className="space-y-4 border-t border-slate-800 pt-6">
         <div className="flex justify-between items-center">
           <h2 className="text-sm font-semibold text-indigo-400 uppercase tracking-wider">Languages</h2>
           <button onClick={addLanguage} className="flex items-center gap-1 text-xs bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg font-medium transition">
@@ -417,14 +585,14 @@ export default function CVEditor({ data, onChange }: CVEditorProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pr-6">
               <input
                 type="text"
-                placeholder="Language (e.g. English)"
+                placeholder="Language (e.g. Urdu, English)"
                 value={lang.name}
                 onChange={(e) => updateLanguage(lang.id, 'name', e.target.value)}
                 className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
               />
               <input
                 type="text"
-                placeholder="Proficiency (e.g. Native, Fluent)"
+                placeholder="Proficiency (e.g. Native, Professional)"
                 value={lang.proficiency}
                 onChange={(e) => updateLanguage(lang.id, 'proficiency', e.target.value)}
                 className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
@@ -435,11 +603,11 @@ export default function CVEditor({ data, onChange }: CVEditorProps) {
       </div>
 
       {/* Skills */}
-      <div className="space-y-2">
+      <div className="space-y-2 border-t border-slate-800 pt-6">
         <h2 className="text-sm font-semibold text-indigo-400 uppercase tracking-wider">Skills</h2>
         <input
           type="text"
-          placeholder="Comma-separated (e.g. React, TypeScript, Node.js)"
+          placeholder="Comma-separated format (e.g. React, TypeScript, Python)"
           value={data.skills.join(', ')}
           onChange={handleSkillsChange}
           className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
