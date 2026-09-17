@@ -1,4 +1,3 @@
-// data/initialData.ts
 import { CVData } from '@/types/cv';
 
 export const initialCVData: CVData = {
@@ -27,6 +26,31 @@ export const initialCVData: CVData = {
       degree: 'B.S. in Computer Science',
       startDate: '2016',
       endDate: '2020'
+    }
+  ],
+  certifications: [
+    {
+      id: '1',
+      name: 'AWS Certified Solutions Architect',
+      issuer: 'Amazon Web Services',
+      date: '2023',
+      url: 'https://aws.amazon.com'
+    }
+  ],
+  languages: [
+    {
+      id: '1',
+      name: 'English',
+      proficiency: 'Native'
+    }
+  ],
+  projects: [
+    {
+      id: '1',
+      name: 'DevFlow SaaS',
+      description: 'An AI-powered developer workflow automation tool built with React and Node.js.',
+      url: 'https://github.com/example/devflow',
+      technologies: 'React, TypeScript, Node.js'
     }
   ],
   skills: ['React', 'Next.js', 'TypeScript', 'Tailwind CSS', 'Node.js', 'Git'],
