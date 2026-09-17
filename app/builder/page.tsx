@@ -1,4 +1,3 @@
-// app/builder/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,7 +5,8 @@ import { CVData } from '@/types/cv';
 import { initialCVData } from '@/data/initialData';
 import CVEditor from '@/components/CVEditor';
 import CVPreview from '@/components/CVPreview';
-import { Download, FileText, RotateCcw, ArrowLeft } from 'lucide-react';
+import ExportButton from '@/components/ExportButton';
+import { FileText, RotateCcw, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 export default function BuilderPage() {
@@ -18,7 +18,6 @@ export default function BuilderPage() {
     if (saved) {
       try {
         const parsedData = JSON.parse(saved);
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCvData({
           ...initialCVData,
           ...parsedData,
@@ -44,10 +43,6 @@ export default function BuilderPage() {
     }
   };
 
-  const handleDownloadPDF = () => {
-    window.print();
-  };
-
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
       {/* Top Navigation Bar */}
@@ -60,23 +55,20 @@ export default function BuilderPage() {
             <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-600/30">
               <FileText size={18} />
             </div>
-            <span className="font-bold text-base tracking-tight hidden sm:inline">ResumeForge <span className="text-indigo-400 text-xs uppercase px-2 py-0.5 bg-indigo-950 border border-indigo-800 rounded-full ml-1">Workspace</span></span>
+            <span className="font-bold text-base tracking-tight hidden sm:inline">
+              ResumeForge <span className="text-indigo-400 text-xs uppercase px-2 py-0.5 bg-indigo-950 border border-indigo-800 rounded-full ml-1">Workspace</span>
+            </span>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             onClick={handleReset}
-            className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl transition border border-slate-700"
+            className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl transition border border-slate-700 cursor-pointer"
           >
             <RotateCcw size={14} /> Reset
           </button>
-          <button
-            onClick={handleDownloadPDF}
-            className="flex items-center gap-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition transform hover:scale-105 cursor-pointer"
-          >
-            <Download size={14} /> Download PDF
-          </button>
+          <ExportButton data={cvData} />
         </div>
       </header>
 
