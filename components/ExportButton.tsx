@@ -31,7 +31,8 @@ export default function ExportButton({ data }: ExportButtonProps) {
     // Validate data against Zod schema before export
     const result = cvSchema.safeParse(data);
     if (!result.success) {
-      const firstError = result.error?.errors?.[0];
+      // Fixed: Zod uses .issues instead of .errors
+      const firstError = result.error?.issues?.[0];
       if (firstError) {
         const fieldName = firstError.path.join(' › ');
         setErrorMsg(`${fieldName || 'Form'}: ${firstError.message}`);
